@@ -1,0 +1,4 @@
+- Delete all deployments
+- Delete all Services
+- run `main.go`
+- `kubectl port-forward svc/bookapiserver 3200`

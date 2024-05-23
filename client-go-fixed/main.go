@@ -8,12 +8,14 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
 	"log"
 	"os"
+	"time"
 )
 
 func main() {
@@ -41,13 +43,13 @@ func main() {
 			Replicas: int32Ptr(2),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": "demo",
+					"app": "bookapiserver",
 				},
 			},
 			Template: apiv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": "demo",
+						"app": "bookapiserver",
 					},
 				},
 				Spec: apiv1.PodSpec{
@@ -76,6 +78,39 @@ func main() {
 	}
 	fmt.Printf("Created deployment %q.\n", result.GetObjectMeta().GetName())
 	prompt()
+
+	// service
+	serviceClients := clientset.CoreV1().Services(apiv1.NamespaceDefault)
+	service := &apiv1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "bookapiserver",
+		},
+		Spec: apiv1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "bookapiserver",
+			},
+			Ports: []apiv1.ServicePort{
+				{
+					Protocol:   apiv1.ProtocolTCP,
+					Port:       3200,
+					TargetPort: intstr.FromInt32(8080),
+				},
+			},
+		},
+	}
+	/// Creating service
+	fmt.Println("Creating Service...")
+	res, err := serviceClients.Create(context.TODO(), service, metav1.CreateOptions{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Created service %q.\n", res.GetObjectMeta().GetName())
+	time.Sleep(1 * time.Minute)
+	// Deleting service
+	fmt.Println("Deleting Service...")
+	prompt()
+	err = serviceClients.Delete(context.TODO(), res.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+	fmt.Printf("Deleted Service %q.\n", res.GetObjectMeta().GetName())
 
 	fmt.Println("Analyzing our new deployment\n")
 
